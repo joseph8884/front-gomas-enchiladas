@@ -12,6 +12,8 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [inventory, setInventory] = useState({ maxiVasos: 0, bolsas: 0 });
   const [inventoryDocId, setInventoryDocId] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   const fetchInventory = async () => {
     try {
@@ -136,7 +138,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
 
       // Solo afectar el inventario cuando cambia a/desde "entregado"
       // El estado "cancelado" no afecta el inventario
-      if (newStatus === 'entregado' && orderToUpdate.estado !== 'entregado' && inventoryDocId) {
+      if (newStatus === 'en_camino' && orderToUpdate.estado !== 'entregado' && inventoryDocId) {
         // Restar del inventario cuando se marca como entregado
         const newInventory = {
           maxiVasos: Math.max(0, inventory.maxiVasos - (orderToUpdate.maxiVasos || 0)),
@@ -162,6 +164,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
         newStatus === 'pendiente' ? 'Pendiente' :
         newStatus === 'en_camino' ? 'En Camino' :
         newStatus === 'entregado' ? 'Entregado' :
+        newStatus === 'encargo' ? 'Encargo' :
         newStatus === 'cancelado' ? 'Cancelado' : 
         newStatus
       }`);
@@ -177,6 +180,16 @@ const OrderList = ({ phone, isAdmin = false }) => {
       setError('Error al actualizar el estado. Inténtalo de nuevo.');
       setTimeout(() => setError(''), 3000);
     }
+  };
+
+  const openImageModal = (imageUrl) => {
+    setSelectedImage(imageUrl);
+    setIsImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setSelectedImage(null);
+    setIsImageModalOpen(false);
   };
 
   return (
@@ -240,7 +253,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
             </thead>
             <tbody>
               {orders.map(order => (
-                <tr key={order.id} className="border-b hover:bg-gray-50">
+                <tr key={order.id} className={`border-b hover:bg-gray-50 ${order.estado === 'encargo' ? 'bg-yellow-50' : ''}`}>
                   <td className="py-2 px-4">
                     {order.fecha.toLocaleDateString()} {order.fecha.toLocaleTimeString()}
                   </td>
@@ -252,20 +265,37 @@ const OrderList = ({ phone, isAdmin = false }) => {
                     {order.bolsas > 0 && `${order.bolsas} Bolsas`}
                   </td>
                   <td className="py-2 px-4">${order.total.toLocaleString()}</td>
-                  <td className="py-2 px-4">{order.horaEntrega}</td>
+                  
+                  <td className="py-2 px-4">
+                    {order.tipoOrden === 'futuro' && (
+                      <div>
+                        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">
+                          ENCARGO: {new Date(order.fechaEntrega).toLocaleDateString()}
+                        </span>
+                        {order.comentarios && (
+                          <div className="text-xs text-gray-600 mt-1 italic">
+                            {order.comentarios}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {order.tipoOrden !== 'futuro' && order.horaEntrega}
+                  </td>
+                  
                   <td className="py-2 px-4">
                     <span className={`px-2 py-1 rounded text-xs font-semibold
-    ${order.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                      ${order.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
                         order.estado === 'en_camino' ? 'bg-blue-100 text-blue-800' :
-                          order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
-                          order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'}`}>
+                        order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
+                        order.estado === 'encargo' ? 'bg-purple-100 text-purple-800' :
+                        order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'}`}>
                       {order.estado === 'pendiente' ? 'Pendiente' :
                         order.estado === 'en_camino' ? 'En Camino' :
-                          order.estado === 'en_proceso' ? 'En Proceso' :
-                            order.estado === 'entregado' ? 'Entregado' :
-                            order.estado === 'cancelado' ? 'Cancelado' :
-                              order.estado}
+                        order.estado === 'entregado' ? 'Entregado' :
+                        order.estado === 'encargo' ? 'Encargo' :
+                        order.estado === 'cancelado' ? 'Cancelado' :
+                        order.estado}
                     </span>
                   </td>
                   <td className="py-2 px-4 text-center">
@@ -287,12 +317,53 @@ const OrderList = ({ phone, isAdmin = false }) => {
                           📝
                         </button>
                       )}
+                      
+                      {order.imagenUrl && (
+                        <button
+                          onClick={() => openImageModal(order.imagenUrl)}
+                          className="text-green-600 hover:text-green-800"
+                          title="Ver imagen de ubicación"
+                        >
+                          🖼️
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {isImageModalOpen && selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-xl max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4 text-red-700">Imagen de ubicación</h3>
+            <div className="relative">
+              <img 
+                src={selectedImage} 
+                alt="Ubicación" 
+                className="w-full object-contain max-h-80"
+              />
+            </div>
+            <div className="mt-4 flex justify-between">
+              <a 
+                href={selectedImage} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-sm"
+              >
+                Abrir en nueva pestaña
+              </a>
+              <button
+                onClick={closeImageModal}
+                className="bg-gray-300 text-gray-800 py-2 px-4 rounded hover:bg-gray-400 text-sm"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -318,6 +389,12 @@ const OrderList = ({ phone, isAdmin = false }) => {
                 className="block w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 border rounded mb-2"
               >
                 Entregado
+              </button>
+              <button
+                onClick={() => handleUpdateStatus('encargo')}
+                className="block w-full text-left px-4 py-3 text-sm text-purple-700 hover:bg-purple-100 border rounded mb-2"
+              >
+                Encargo
               </button>
               <button
                 onClick={() => handleUpdateStatus('cancelado')}
