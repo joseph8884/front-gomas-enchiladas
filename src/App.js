@@ -8,6 +8,7 @@ import Admin from './pages/Admin';
 import LoginPage from './pages/Login';
 import ProtectedRoute from './routes/ProtectedRoute';
 import { AuthProvider } from './routes/AuthContext';
+import "./fonts/Awesome Lathusca.woff"
 
 function App() {
   return (

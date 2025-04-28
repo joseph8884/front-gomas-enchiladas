@@ -6,7 +6,7 @@ const Header = () => {
   const { currentUser, logout } = useAuth();
 
   return (
-    <header className="bg-red-600 text-white p-4">
+    <header className="bg-red-700 text-white p-4 md:pl-64">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-2xl font-bold">Gomas Enchiladas</h1>
         <nav>
