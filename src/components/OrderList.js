@@ -264,7 +264,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
                 {isAdmin && <th className="py-2 px-4 text-left">Teléfono</th>}
                 <th className="py-2 px-4 text-left">Productos</th>
                 <th className="py-2 px-4 text-left">Total</th>
-                <th className="py-2 px-4 text-left">hora de entrega</th>
+                <th className="py-2 px-4 text-left">Hora de entrega</th>
                 <th className="py-2 px-4 text-left">Estado</th>
                 <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
