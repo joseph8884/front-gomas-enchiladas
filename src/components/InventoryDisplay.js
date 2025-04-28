@@ -14,7 +14,7 @@ const InventoryDisplay = () => {
       try {
         const inventoryRef = collection(db, 'inventory');
         const inventorySnapshot = await getDocs(inventoryRef);
-        
+
         if (!inventorySnapshot.empty) {
           const inventoryData = inventorySnapshot.docs[0].data();
           setInventory({
@@ -37,18 +37,37 @@ const InventoryDisplay = () => {
   }
 
   return (
-    <div className="bg-yellow-100 p-4 rounded-lg shadow-md my-4">
-      <h2 className="text-xl font-bold mb-2 text-red-700">Inventario Disponible Hoy</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-3 rounded shadow">
-          <h3 className="font-semibold">Maxi Vasos</h3>
-          <p className="text-lg">{inventory.maxiVasos} disponibles</p>
-          <p className="text-sm text-gray-600">$10,000 - Aprox. 20 gomas</p>
+    <div className="p-4 rounded-lg shadow-md my-4">
+      <h2 className="text-xl font-bold mb-4 text-red-700 text-center">Inventario Disponible Hoy</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Tarjeta Maxi Vaso */}
+        <div className="bg-white rounded-lg overflow-hidden shadow-lg transform transition duration-300 hover:scale-105">
+          <div className="h-64 bg-cover bg-center" style={{ backgroundImage: "url('/vaso.jpg')" }}></div>
+          <div className="p-6 bg-red-700">
+            <h3 className="text-xl font-semibold text-white">Maxi Vaso 20g</h3>
+            <p className="text-white mt-1">Aproximadamente 20 gomitas</p>
+            <div className="flex justify-between items-center mt-3">
+              <p className="text-white font-bold text-xl">COP $10,000</p>
+              <div className="bg-white text-red-700 font-bold px-3 py-1 rounded-full">
+                {inventory.maxiVasos} disponibles
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-3 rounded shadow">
-          <h3 className="font-semibold">Bolsas</h3>
-          <p className="text-lg">{inventory.bolsas} disponibles</p>
-          <p className="text-sm text-gray-600">$5,000 - 8 gomas</p>
+
+        {/* Tarjeta Bolsa */}
+        <div className="bg-white rounded-lg overflow-hidden shadow-lg transform transition duration-300 hover:scale-105">
+          <div className="h-64 bg-cover bg-center" style={{ backgroundImage: "url('/bolsa.jpg')" }}></div>
+          <div className="p-6 bg-red-700">
+            <h3 className="text-xl font-semibold text-white">Bolsa 8g</h3>
+            <p className="text-white mt-1">Aproximadamente 8 gomitas</p>
+            <div className="flex justify-between items-center mt-3">
+              <p className="text-white font-bold text-xl">COP $5,000</p>
+              <div className="bg-white text-red-700 font-bold px-3 py-1 rounded-full">
+                {inventory.bolsas} disponibles
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

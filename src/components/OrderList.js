@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import InfoTooltip from './InfoTooltip'; // Add this import
 
 const OrderList = ({ phone, isAdmin = false }) => {
   const [orders, setOrders] = useState([]);
@@ -192,6 +193,23 @@ const OrderList = ({ phone, isAdmin = false }) => {
     setIsImageModalOpen(false);
   };
 
+  const getStatusTooltip = (status) => {
+    switch(status) {
+      case 'pendiente':
+        return "Tu pedido ha sido recibido y está en proceso de aceptación por nosotros. Pronto estará en camino.";
+      case 'en_camino':
+        return "¡Tu pedido está en camino! Llegará a la dirección y hora indicada.";
+      case 'entregado':
+        return "Tu pedido ha sido entregado. ¡Gracias por tu compra!";
+      case 'encargo':
+        return "Este es un pedido programado para una fecha futura. Se entregará en la fecha acordada. Nos pondremos en contacto para los detalles.";
+      case 'cancelado':
+        return "Este pedido ha sido cancelado. Si tienes dudas, contáctanos.";
+      default:
+        return "Estado de pedido";
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md my-4">
       <h2 className="text-xl font-bold mb-4 text-red-700">
@@ -241,7 +259,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-100 text-gray-700">
-                <th className="py-2 px-4 text-left">Fecha</th>
+                <th className="py-2 px-4 text-left">Fecha de realización de pedido</th>
                 {isAdmin && <th className="py-2 px-4 text-left">Cliente</th>}
                 {isAdmin && <th className="py-2 px-4 text-left">Teléfono</th>}
                 <th className="py-2 px-4 text-left">Productos</th>
@@ -282,21 +300,26 @@ const OrderList = ({ phone, isAdmin = false }) => {
                     {order.tipoOrden !== 'futuro' && order.horaEntrega}
                   </td>
                   
-                  <td className="py-2 px-4">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold
-                      ${order.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                        order.estado === 'en_camino' ? 'bg-blue-100 text-blue-800' :
-                        order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
-                        order.estado === 'encargo' ? 'bg-purple-100 text-purple-800' :
-                        order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'}`}>
-                      {order.estado === 'pendiente' ? 'Pendiente' :
-                        order.estado === 'en_camino' ? 'En Camino' :
-                        order.estado === 'entregado' ? 'Entregado' :
-                        order.estado === 'encargo' ? 'Encargo' :
-                        order.estado === 'cancelado' ? 'Cancelado' :
-                        order.estado}
-                    </span>
+                  <td className="py-2 px-4 relative">
+                    <div className="flex items-center">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold
+                        ${order.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                          order.estado === 'en_camino' ? 'bg-blue-100 text-blue-800' :
+                          order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
+                          order.estado === 'encargo' ? 'bg-purple-100 text-purple-800' :
+                          order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                        {order.estado === 'pendiente' ? 'Pendiente' :
+                          order.estado === 'en_camino' ? 'En Camino' :
+                          order.estado === 'entregado' ? 'Entregado' :
+                          order.estado === 'encargo' ? 'Encargo' :
+                          order.estado === 'cancelado' ? 'Cancelado' :
+                          order.estado}
+                      </span>
+                      <div className="inline-block relative" style={{ zIndex: 40 }}>
+                        <InfoTooltip text={getStatusTooltip(order.estado)} />
+                      </div>
+                    </div>
                   </td>
                   <td className="py-2 px-4 text-center">
                     <div className="flex justify-center space-x-2">

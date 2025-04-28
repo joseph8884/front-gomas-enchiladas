@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db } from '../services/firebase';
+import ImmediateOrderForm from './ImmediateOrderForm';
+import FutureOrderForm from './FutureOrderForm';
+import InfoTooltip from './InfoTooltip';
 
 const OrderForm = () => {
   const [formData, setFormData] = useState({
@@ -23,6 +26,7 @@ const OrderForm = () => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [submittedOrder, setSubmittedOrder] = useState(null);
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -67,7 +71,6 @@ const OrderForm = () => {
     } else if (name === 'telefono') {
       const cleanValue = value.replace(/[^\d\s-]/g, '');
       setFormData({ ...formData, [name]: cleanValue });
-      const phoneValidation = validatePhoneNumber(cleanValue);
     } else if (name === 'codigoReferido') {
       const alphanumericValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       if (alphanumericValue.length <= 5) {
@@ -139,19 +142,6 @@ const OrderForm = () => {
     return '';
   };
 
-  const handleImageSelection = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const uploadImage = async () => {
     if (!imageFile) return null;
     
@@ -211,6 +201,11 @@ const OrderForm = () => {
         total
       });
       
+      setSubmittedOrder({
+        ...formData,
+        total
+      });
+      
       setFormData({
         nombre: '',
         telefono: '',
@@ -227,7 +222,6 @@ const OrderForm = () => {
       setImagePreview(null);
       
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 5000);
     } catch (error) {
       console.error('Error al crear pedido:', error);
       setError('Hubo un error al crear el pedido. Inténtalo de nuevo.');
@@ -236,13 +230,80 @@ const OrderForm = () => {
     }
   };
 
+  // Common handler for image operations
+  const handleImageOperations = {
+    handleImageSelection: (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setImageFile(file);
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    },
+    clearImage: () => {
+      setImageFile(null);
+      setImagePreview(null);
+    }
+  };
+
+  // Handler for product quantity
+  const handleProductQuantity = {
+    increment: (product) => {
+      if (formData.tipoOrden === 'inmediato' && formData[product] < inventory[product]) {
+        setFormData({ ...formData, [product]: formData[product] + 1 });
+      } else if (formData.tipoOrden === 'futuro') {
+        setFormData({ ...formData, [product]: formData[product] + 1 });
+      }
+    },
+    decrement: (product) => {
+      setFormData({ ...formData, [product]: Math.max(0, formData[product] - 1) });
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md my-4">
       <h2 className="text-xl font-bold mb-4 text-red-700">Hacer un Pedido</h2>
       
-      {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          ¡Pedido realizado con éxito! Nos pondremos en contacto contigo.
+      {success && submittedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 mx-4 max-w-md w-full transform transition-all animate-fadeIn">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">¡Pedido realizado con éxito!</h3>
+              <div className="bg-gray-100 p-3 rounded mb-4">
+                <h4 className="font-semibold text-gray-800 mb-2">Resumen de tu pedido:</h4>
+                <p className="text-red-700 font-medium">{submittedOrder.tipoOrden === 'inmediato' ? 'Entrega inmediata' : 'Encargo para fecha futura'}</p>
+                <div className="flex justify-between py-1">
+                  <span>Maxi Vasos:</span>
+                  <span className="font-medium">{submittedOrder.maxiVasos}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Bolsas:</span>
+                  <span className="font-medium">{submittedOrder.bolsas}</span>
+                </div>
+                <div className="border-t border-gray-300 mt-2 pt-2 flex justify-between font-bold">
+                  <span>Total:</span>
+                  <span>{submittedOrder.total} COP</span>
+                </div>
+              </div>
+              <p className="text-gray-700 mb-4">Nos pondremos en contacto contigo al número <span className="font-semibold">{submittedOrder.telefono}</span> para confirmar tu pedido.</p>
+              <button
+                type="button"
+                onClick={() => setSuccess(false)}
+                className="inline-flex justify-center w-full px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
@@ -283,7 +344,10 @@ const OrderForm = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-700 mb-2">Nombre completo*</label>
+            <label className="block text-gray-700 mb-2">
+              Nombre completo*
+              <InfoTooltip text="Ingresa tu nombre completo para que podamos identificarte al entregar el pedido" />
+            </label>
             <input
               type="text"
               name="nombre"
@@ -295,7 +359,10 @@ const OrderForm = () => {
           </div>
           
           <div>
-            <label className="block text-gray-700 mb-2">Teléfono*</label>
+            <label className="block text-gray-700 mb-2">
+              Teléfono*
+              <InfoTooltip text="Número de celular donde podamos contactarte respecto a tu pedido. Debe ser un número colombiano válido" />
+            </label>
             <input
               type="tel"
               name="telefono"
@@ -307,124 +374,30 @@ const OrderForm = () => {
           </div>
           
           {formData.tipoOrden === 'inmediato' ? (
-            <>
-              <div>
-                <label className="block text-gray-700 mb-2">Ubicación en la universidad*</label>
-                <input
-                  type="text"
-                  name="ubicacion"
-                  value={formData.ubicacion}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Ej: Biblioteca, Cafetería Central"
-                  required
-                />
-                
-                <div className="mt-2">
-                  <label className="block text-gray-700 mb-2">
-                    <span>Agregar imagen de ubicación </span>
-                    <span className="text-xs text-gray-500">(opcional)</span>
-                  </label>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <label className="inline-flex items-center px-3 py-2 bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 text-sm">
-                      <span className="mr-1">📁</span>
-                      <span>Subir foto</span>
-                      <input 
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelection}
-                        className="hidden"
-                      />
-                    </label>
-                    
-                    <label className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 text-sm">
-                      <span className="mr-1">📱</span>
-                      <span>Tomar foto</span>
-                      <input 
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleImageSelection}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  
-                  {imagePreview && (
-                    <div className="mt-2 relative">
-                      <img 
-                        src={imagePreview} 
-                        alt="Vista previa" 
-                        className="h-32 w-auto object-cover rounded border"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImageFile(null);
-                          setImagePreview(null);
-                        }}
-                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2">Hora de entrega*</label>
-                <input
-                  type="time"
-                  name="horaEntrega"
-                  value={formData.horaEntrega}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                  required
-                />
-              </div>
-            </>
+            <ImmediateOrderForm 
+              formData={formData}
+              handleChange={handleChange}
+              imagePreview={imagePreview}
+              handleImageOperations={handleImageOperations}
+            />
           ) : (
-            <>
-              <div>
-                <label className="block text-gray-700 mb-2">Fecha de entrega*</label>
-                <input
-                  type="date"
-                  name="fechaEntrega"
-                  value={formData.fechaEntrega}
-                  onChange={handleChange}
-                  min={getMinDate()}
-                  max={getMaxDate()}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Puedes hacer encargos con hasta 7 días de anticipación</p>
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2">Comentarios adicionales</label>
-                <textarea
-                  name="comentarios"
-                  value={formData.comentarios}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Especifica cualquier detalle adicional para tu encargo"
-                  rows="3"
-                ></textarea>
-              </div>
-            </>
+            <FutureOrderForm 
+              formData={formData}
+              handleChange={handleChange}
+              getMinDate={getMinDate}
+              getMaxDate={getMaxDate}
+            />
           )}
           
           <div>
-            <label className="block text-gray-700 mb-2">Maxi Vasos (10.000 COP c/u)</label>
+            <label className="block text-gray-700 mb-2">
+              Maxi Vasos (10.000 COP c/u)
+              <InfoTooltip text="Nuestro producto premium. Cada Maxi Vaso contiene una porción generosa de gomitas con chile" />
+            </label>
             <div className="flex items-center">
               <button 
                 type="button"
-                onClick={() => setFormData({ 
-                  ...formData, 
-                  maxiVasos: Math.max(0, formData.maxiVasos - 1) 
-                })}
+                onClick={() => handleProductQuantity.decrement('maxiVasos')}
                 className="px-3 py-1 bg-red-500 text-white rounded-l"
               >-</button>
               <input
@@ -438,19 +411,7 @@ const OrderForm = () => {
               />
               <button 
                 type="button"
-                onClick={() => {
-                  if (formData.tipoOrden === 'inmediato' && formData.maxiVasos < inventory.maxiVasos) {
-                    setFormData({ 
-                      ...formData, 
-                      maxiVasos: formData.maxiVasos + 1 
-                    })
-                  } else if (formData.tipoOrden === 'futuro') {
-                    setFormData({ 
-                      ...formData, 
-                      maxiVasos: formData.maxiVasos + 1 
-                    })
-                  }
-                }}
+                onClick={() => handleProductQuantity.increment('maxiVasos')}
                 className="px-3 py-1 bg-red-500 text-white rounded-r"
               >+</button>
               {formData.tipoOrden === 'inmediato' && (
@@ -460,14 +421,14 @@ const OrderForm = () => {
           </div>
           
           <div>
-            <label className="block text-gray-700 mb-2">Bolsas (5.000 COP c/u)</label>
+            <label className="block text-gray-700 mb-2">
+              Bolsas (5.000 COP c/u)
+              <InfoTooltip text="Bolsa individual de gomitas con chile, tamaño personal" />
+            </label>
             <div className="flex items-center">
               <button 
                 type="button"
-                onClick={() => setFormData({ 
-                  ...formData, 
-                  bolsas: Math.max(0, formData.bolsas - 1) 
-                })}
+                onClick={() => handleProductQuantity.decrement('bolsas')}
                 className="px-3 py-1 bg-red-500 text-white rounded-l"
               >-</button>
               <input
@@ -481,19 +442,7 @@ const OrderForm = () => {
               />
               <button 
                 type="button"
-                onClick={() => {
-                  if (formData.tipoOrden === 'inmediato' && formData.bolsas < inventory.bolsas) {
-                    setFormData({ 
-                      ...formData, 
-                      bolsas: formData.bolsas + 1 
-                    })
-                  } else if (formData.tipoOrden === 'futuro') {
-                    setFormData({ 
-                      ...formData, 
-                      bolsas: formData.bolsas + 1 
-                    })
-                  }
-                }}
+                onClick={() => handleProductQuantity.increment('bolsas')}
                 className="px-3 py-1 bg-red-500 text-white rounded-r"
               >+</button>
               {formData.tipoOrden === 'inmediato' && (
@@ -503,7 +452,10 @@ const OrderForm = () => {
           </div>
           
           <div>
-            <label className="block text-gray-700 mb-2">Código de Referido (opcional)</label>
+            <label className="block text-gray-700 mb-2">
+              Código de Referido (opcional)
+              <InfoTooltip text="Si alguien te recomendó nuestro servicio, ingresa su código aquí para que ambos obtengan beneficios" />
+            </label>
             <input
               type="text"
               name="codigoReferido"
