@@ -6,32 +6,95 @@ const InfoTooltip = ({ text }) => {
   const [tooltipPosition, setTooltipPosition] = useState('right');
   const buttonRef = useRef(null);
   const tooltipRef = useRef(null);
+  const positionCalculatedRef = useRef(false);
+
+  const calculatePosition = () => {
+    if (!isVisible || !buttonRef.current || !tooltipRef.current || positionCalculatedRef.current) {
+      return;
+    }
+
+    const rect = buttonRef.current.getBoundingClientRect();
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    const tooltipWidth = tooltipRef.current.offsetWidth;
+    const tooltipHeight = tooltipRef.current.offsetHeight;
+    
+    let tooltipLeft = 0;
+    let tooltipTop = 0;
+    let positionStyle = 'right';
+    let transform = 'translateY(-50%)';
+
+    // Establecemos un orden de prioridad claro: derecha > izquierda > abajo > arriba
+    
+    // Check right (primera prioridad)
+    if (rect.right + tooltipWidth + 10 <= windowWidth) {
+      tooltipLeft = rect.right + 10;
+      tooltipTop = rect.top + (rect.height / 2);
+      positionStyle = 'right';
+      transform = 'translateY(-50%)';
+    } 
+    // Check left (segunda prioridad)
+    else if (rect.left - tooltipWidth - 10 >= 0) {
+      tooltipLeft = rect.left - tooltipWidth - 10;
+      tooltipTop = rect.top + (rect.height / 2);
+      positionStyle = 'left';
+      transform = 'translateY(-50%)';
+    }
+    // Check bottom (tercera prioridad)
+    else if (rect.bottom + tooltipHeight + 10 <= windowHeight) {
+      tooltipLeft = rect.left + (rect.width / 2);
+      tooltipTop = rect.bottom + 10;
+      positionStyle = 'bottom';
+      transform = 'translateX(-50%)';
+    }
+    // Default to top (última opción)
+    else {
+      tooltipLeft = rect.left + (rect.width / 2);
+      tooltipTop = rect.top - tooltipHeight - 20;
+      positionStyle = 'top';
+      transform = 'translateX(-50%)';
+    }
+    
+    setTooltipPosition(positionStyle);
+    setPosition({
+      left: tooltipLeft,
+      top: tooltipTop,
+      transform
+    });
+    
+    // Marcamos que ya se ha calculado la posición
+    positionCalculatedRef.current = true;
+  };
 
   useEffect(() => {
-    if (isVisible && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const windowWidth = window.innerWidth;
+    if (isVisible) {
+      // Resetear el cálculo cuando el tooltip se hace visible
+      positionCalculatedRef.current = false;
       
-      // Default position (to the right)
-      let tooltipLeft = rect.right + 10;
-      let positionStyle = 'right';
+      // Calcular posición después de renderizado
+      const timer = setTimeout(calculatePosition, 0);
       
-      // Check if tooltip would go off-screen (allowing for tooltip width + some margin)
-      const tooltipWidth = 260; // Approximating the tooltip width (256px + some margin)
+      // Recalcular en resize de ventana
+      const handleResize = () => {
+        positionCalculatedRef.current = false;
+        calculatePosition();
+      };
       
-      if (tooltipLeft + tooltipWidth > windowWidth) {
-        // Not enough space on right, position to the left of the button
-        tooltipLeft = rect.left - tooltipWidth - 10;
-        positionStyle = 'left';
-      }
-      
-      setTooltipPosition(positionStyle);
-      setPosition({
-        left: tooltipLeft,
-        top: rect.top + (rect.height / 2) // Vertically centered
-      });
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        clearTimeout(timer);
+      };
     }
   }, [isVisible]);
+
+  // Efecto para recalcular si las referencias cambian
+  useEffect(() => {
+    if (isVisible && tooltipRef.current && buttonRef.current) {
+      calculatePosition();
+    }
+  }, [tooltipRef.current, buttonRef.current]);
 
   return (
     <>
@@ -40,8 +103,12 @@ const InfoTooltip = ({ text }) => {
         type="button"
         className="text-blue-500 text-sm font-bold rounded-full w-5 h-5 inline-flex items-center justify-center bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-300 ml-1"
         onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
-        onClick={() => setIsVisible(!isVisible)}
+        onMouseLeave={() => {
+          setIsVisible(false);
+        }}
+        onClick={() => {
+          setIsVisible(!isVisible);
+        }}
         aria-label="Más información"
       >
         i
@@ -49,11 +116,14 @@ const InfoTooltip = ({ text }) => {
       {isVisible && (
         <div 
           ref={tooltipRef}
-          className="fixed z-[9999] bg-white border border-gray-200 rounded shadow-lg p-2 text-sm text-gray-700 w-64"
+          className="fixed z-[9999] bg-white border border-gray-200 rounded shadow-lg p-2 text-sm text-gray-700 max-w-xs transition-opacity duration-150"
           style={{
             left: `${position.left}px`,
             top: `${position.top}px`,
-            transform: 'translateY(-50%)'
+            transform: position.transform,
+            width: 'auto',
+            maxWidth: 'min(256px, 90vw)',
+            opacity: positionCalculatedRef.current ? 1 : 0, // Mostrar solo cuando la posición está calculada
           }}
         >
           {text}

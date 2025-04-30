@@ -11,7 +11,7 @@ const Home = () => {
           className="w-full h-64 bg-cover bg-center"
           style={{ backgroundImage: "url('/fondo gomas.png')" }}
         >
-          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+          <div className="absolute inset-0 bg-opacity-30"></div>
           <div className="relative container mx-auto px-4 py-16 text-white">
           </div>
         </div>
