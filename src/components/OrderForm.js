@@ -5,6 +5,7 @@ import { db } from '../services/firebase';
 import ImmediateOrderForm from './ImmediateOrderForm';
 import FutureOrderForm from './FutureOrderForm';
 import InfoTooltip from './InfoTooltip';
+import { verifyReferralCode, calculateReferralDiscount, updateReferrerData } from './verifyReferralCode';
 
 const OrderForm = () => {
   const [formData, setFormData] = useState({
@@ -25,7 +26,9 @@ const OrderForm = () => {
   const [error, setError] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [referrerData, setReferrerData] = useState(null);
+  const [discount, setDiscount] = useState(0);
+
   const [submittedOrder, setSubmittedOrder] = useState(null);
 
   useEffect(() => {
@@ -73,8 +76,14 @@ const OrderForm = () => {
       setFormData({ ...formData, [name]: cleanValue });
     } else if (name === 'codigoReferido') {
       const alphanumericValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      if (alphanumericValue.length <= 5) {
+      if (alphanumericValue.length <= 6) {
         setFormData({ ...formData, [name]: alphanumericValue });
+        
+        // Clear error and referrer data when code changes
+        if (referrerData && referrerData.NumReferido !== alphanumericValue) {
+          setReferrerData(null);
+          setDiscount(0);
+        }
       }
     } else if (name === 'tipoOrden') {
       if (value === 'inmediato') {
@@ -197,7 +206,6 @@ const OrderForm = () => {
   const uploadImage = async () => {
     if (!imageFile) return null;
     
-    setUploadingImage(true);
     
     try {
       const storage = getStorage();
@@ -224,10 +232,37 @@ const OrderForm = () => {
       console.error('Error al subir imagen:', error);
       setError('Hubo un problema al subir la imagen. Inténtalo de nuevo.');
       return null;
-    } finally {
-      setUploadingImage(false);
+    } 
+  };
+
+  const checkReferralCode = async () => {
+
+    if (formData.codigoReferido && formData.codigoReferido.length === 6) {
+      try {
+        const referrer = await verifyReferralCode(formData.codigoReferido);
+        
+        if (referrer) {
+          setReferrerData(referrer);
+          const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+          setDiscount(calculateReferralDiscount(baseTotal));
+          setError('');
+        } else {
+          setReferrerData(null);
+          setDiscount(0);
+          setError('Código de referido inválido');
+        }
+      } catch (error) {
+        console.error('Error al verificar código de referido:', error);
+      }
     }
   };
+
+  useEffect(() => {
+    if (referrerData) {
+      const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+      setDiscount(calculateReferralDiscount(baseTotal));
+    }
+  }, [formData.maxiVasos, formData.bolsas, referrerData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -236,6 +271,19 @@ const OrderForm = () => {
     if (validationError) {
       setError(validationError);
       return;
+    }
+    
+    // Verify referral code if provided but not yet verified
+    if (formData.codigoReferido && !referrerData) {
+      const referrer = await verifyReferralCode(formData.codigoReferido);
+      if (referrer) {
+        setReferrerData(referrer);
+        const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+        setDiscount(calculateReferralDiscount(baseTotal));
+      } else {
+        setError('El código de referido no es válido');
+        return;
+      }
     }
     
     setLoading(true);
@@ -247,21 +295,30 @@ const OrderForm = () => {
         imageUrl = await uploadImage();
       }
       
-      const total = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+      // Calculate total with discount if applicable
+      const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+      const finalTotal = referrerData ? baseTotal - discount : baseTotal;
       
+      // Add the order document
       await addDoc(collection(db, 'orders'), {
         ...formData,
         imagenUrl: imageUrl,
         estado: formData.tipoOrden === 'inmediato' ? 'pendiente' : 'encargo',
         fecha: serverTimestamp(),
-        total
+        total: finalTotal,
+        descuento: discount > 0 ? discount : null,
+        codigoReferidoValidado: referrerData ? true : false
       });
+      
+
       
       setSubmittedOrder({
         ...formData,
-        total
+        total: finalTotal,
+        descuento: discount
       });
       
+      // Reset form and states
       setFormData({
         nombre: '',
         telefono: '',
@@ -276,6 +333,8 @@ const OrderForm = () => {
       });
       setImageFile(null);
       setImagePreview(null);
+      setReferrerData(null);
+      setDiscount(0);
       
       setSuccess(true);
     } catch (error) {
@@ -345,6 +404,12 @@ const OrderForm = () => {
                   <span>Bolsas:</span>
                   <span className="font-medium">{submittedOrder.bolsas}</span>
                 </div>
+                {submittedOrder.descuento > 0 && (
+                  <div className="flex justify-between py-1 text-green-600">
+                    <span>Descuento por referido:</span>
+                    <span className="font-medium">-{submittedOrder.descuento} COP</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-300 mt-2 pt-2 flex justify-between font-bold">
                   <span>Total:</span>
                   <span>{submittedOrder.total} COP</span>
@@ -510,16 +575,46 @@ const OrderForm = () => {
           <div>
             <label className="block text-gray-700 mb-2">
               Código de Referido (opcional)
-              <InfoTooltip text="Si alguien te recomendó nuestro servicio, ingresa su código aquí para que ambos obtengan beneficios" />
+              <InfoTooltip text="Si alguien te recomendó nuestro servicio, ingresa su código aquí para obtener un 10% de descuento" />
             </label>
-            <input
-              type="text"
-              name="codigoReferido"
-              value={formData.codigoReferido}
-              onChange={handleChange}
-              maxLength={5}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                name="codigoReferido"
+                value={formData.codigoReferido}
+                onChange={handleChange}
+                onBlur={checkReferralCode}
+                maxLength={6}
+                className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 ${
+                  referrerData ? 'border-green-500 focus:ring-green-500' : 'focus:ring-red-500'
+                }`}
+              />
+              {formData.codigoReferido.length === 6 && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  {referrerData ? (
+                    <span className="text-green-600 flex items-center">
+                      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      10% descuento
+                    </span>
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={checkReferralCode}
+                      className="text-blue-600 text-sm underline z-index-10"
+                    >
+                      Verificar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {referrerData && (
+              <p className="text-sm text-green-600 mt-1">
+                ¡Código válido! Descuento de 10% aplicado.
+              </p>
+            )}
           </div>
           
           <div className="col-span-1 md:col-span-2">
@@ -530,7 +625,14 @@ const OrderForm = () => {
               </p>
               <p>Maxi Vasos: {formData.maxiVasos} x 10.000 = {formData.maxiVasos * 10000} COP</p>
               <p>Bolsas: {formData.bolsas} x 5.000 = {formData.bolsas * 5000} COP</p>
-              <p className="font-bold mt-2">Total: {(formData.maxiVasos * 10000) + (formData.bolsas * 5000)} COP</p>
+              
+              {referrerData && discount > 0 && (
+                <p className="text-green-600">Descuento por código referido: -{discount} COP (10%)</p>
+              )}
+              
+              <p className="font-bold mt-2">
+                Total: {((formData.maxiVasos * 10000) + (formData.bolsas * 5000) - (referrerData ? discount : 0)).toLocaleString()} COP
+              </p>
             </div>
           </div>
         </div>

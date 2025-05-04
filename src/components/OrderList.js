@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import InfoTooltip from './InfoTooltip'; // Add this import
-
+import { verifyReferralCode, updateReferrerData } from './verifyReferralCode';
 const OrderList = ({ phone, isAdmin = false }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
     try {
       const inventoryRef = collection(db, 'inventory');
       const inventorySnapshot = await getDocs(inventoryRef);
-      
+
       if (!inventorySnapshot.empty) {
         const inventoryDoc = inventorySnapshot.docs[0];
         setInventoryDocId(inventoryDoc.id);
@@ -94,13 +94,13 @@ const OrderList = ({ phone, isAdmin = false }) => {
 
     try {
       const orderToDelete = orders.find(order => order.id === orderId);
-      
+
       if (!orderToDelete) {
         throw new Error('Pedido no encontrado');
       }
-      
+
       await deleteDoc(doc(db, 'orders', orderId));
-      
+
       setSuccessMessage('Pedido cancelado con éxito');
       setTimeout(() => setSuccessMessage(''), 3000);
 
@@ -127,20 +127,25 @@ const OrderList = ({ phone, isAdmin = false }) => {
 
     try {
       const orderToUpdate = orders.find(order => order.id === editingOrderId);
-      
+
       if (!orderToUpdate) {
         throw new Error('Pedido no encontrado');
       }
-      
+
       // Actualizar el estado del pedido
       await updateDoc(doc(db, 'orders', editingOrderId), {
         estado: newStatus
       });
 
-      // Solo afectar el inventario cuando cambia a/desde "entregado"
-      // El estado "cancelado" no afecta el inventario
-      if (newStatus === 'en_camino' && orderToUpdate.estado !== 'entregado' && inventoryDocId) {
-        // Restar del inventario cuando se marca como entregado
+      // Definir estados que afectan el inventario
+      const afectaInventario = ['en_camino', 'entregado'];
+      const noAfectaInventario = ['pendiente', 'cancelado', 'encargo'];
+
+      // Caso 1: Cambio desde un estado que no afecta inventario a uno que sí
+      if (noAfectaInventario.includes(orderToUpdate.estado) && 
+          afectaInventario.includes(newStatus) && 
+          inventoryDocId) {
+        // Reducir inventario
         const newInventory = {
           maxiVasos: Math.max(0, inventory.maxiVasos - (orderToUpdate.maxiVasos || 0)),
           bolsas: Math.max(0, inventory.bolsas - (orderToUpdate.bolsas || 0))
@@ -149,9 +154,12 @@ const OrderList = ({ phone, isAdmin = false }) => {
         await updateDoc(doc(db, 'inventory', inventoryDocId), newInventory);
         setInventory(newInventory);
       }
-      
-      if (orderToUpdate.estado === 'entregado' && newStatus !== 'entregado' && inventoryDocId) {
-        // Devolver al inventario cuando se cambia de entregado a otro estado
+
+      // Caso 2: Cambio desde un estado que afecta inventario a uno que no
+      else if (afectaInventario.includes(orderToUpdate.estado) && 
+               noAfectaInventario.includes(newStatus) && 
+               inventoryDocId) {
+        // Devolver productos al inventario
         const newInventory = {
           maxiVasos: inventory.maxiVasos + (orderToUpdate.maxiVasos || 0),
           bolsas: inventory.bolsas + (orderToUpdate.bolsas || 0)
@@ -161,14 +169,28 @@ const OrderList = ({ phone, isAdmin = false }) => {
         setInventory(newInventory);
       }
 
-      setSuccessMessage(`Estado actualizado a: ${
-        newStatus === 'pendiente' ? 'Pendiente' :
+      // Manejar referidos solo cuando se cambia a estado "entregado"
+      if (newStatus === 'entregado' && orderToUpdate.estado !== 'entregado') {
+        if (orderToUpdate.codigoReferido) {
+          const referrerData = await verifyReferralCode(orderToUpdate.codigoReferido);
+          if (referrerData) {
+            console.log("maxi vasos", orderToUpdate.maxiVasos, "bolsas", orderToUpdate.bolsas, "total", orderToUpdate.total);
+            await updateReferrerData(referrerData.id, referrerData, {
+              maxiVasos: orderToUpdate.maxiVasos,
+              bolsas: orderToUpdate.bolsas,
+              total: orderToUpdate.total
+            });
+          }
+        }
+      }
+
+      setSuccessMessage(`Estado actualizado a: ${newStatus === 'pendiente' ? 'Pendiente' :
         newStatus === 'en_camino' ? 'En Camino' :
-        newStatus === 'entregado' ? 'Entregado' :
-        newStatus === 'encargo' ? 'Encargo' :
-        newStatus === 'cancelado' ? 'Cancelado' : 
-        newStatus
-      }`);
+          newStatus === 'entregado' ? 'Entregado' :
+            newStatus === 'encargo' ? 'Encargo' :
+              newStatus === 'cancelado' ? 'Cancelado' :
+                newStatus
+        }`);
       setTimeout(() => setSuccessMessage(''), 3000);
 
       setOrders(orders.map(order =>
@@ -194,7 +216,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
   };
 
   const getStatusTooltip = (status) => {
-    switch(status) {
+    switch (status) {
       case 'pendiente':
         return "Tu pedido ha sido recibido y está en proceso de aceptación por nosotros. Pronto estará en camino.";
       case 'en_camino':
@@ -283,7 +305,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
                     {order.bolsas > 0 && `${order.bolsas} Bolsas`}
                   </td>
                   <td className="py-2 px-4">${order.total.toLocaleString()}</td>
-                  
+
                   <td className="py-2 px-4">
                     {order.tipoOrden === 'futuro' && (
                       <div>
@@ -299,22 +321,22 @@ const OrderList = ({ phone, isAdmin = false }) => {
                     )}
                     {order.tipoOrden !== 'futuro' && order.horaEntrega}
                   </td>
-                  
+
                   <td className="py-2 px-4 relative">
                     <div className="flex items-center">
                       <span className={`px-2 py-1 rounded text-xs font-semibold
                         ${order.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
                           order.estado === 'en_camino' ? 'bg-blue-100 text-blue-800' :
-                          order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
-                          order.estado === 'encargo' ? 'bg-purple-100 text-purple-800' :
-                          order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'}`}>
+                            order.estado === 'entregado' ? 'bg-green-100 text-green-800' :
+                              order.estado === 'encargo' ? 'bg-purple-100 text-purple-800' :
+                                order.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'}`}>
                         {order.estado === 'pendiente' ? 'Pendiente' :
                           order.estado === 'en_camino' ? 'En Camino' :
-                          order.estado === 'entregado' ? 'Entregado' :
-                          order.estado === 'encargo' ? 'Encargo' :
-                          order.estado === 'cancelado' ? 'Cancelado' :
-                          order.estado}
+                            order.estado === 'entregado' ? 'Entregado' :
+                              order.estado === 'encargo' ? 'Encargo' :
+                                order.estado === 'cancelado' ? 'Cancelado' :
+                                  order.estado}
                       </span>
                       <div className="inline-block relative" style={{ zIndex: 40 }}>
                         <InfoTooltip text={getStatusTooltip(order.estado)} />
@@ -340,7 +362,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
                           📝
                         </button>
                       )}
-                      
+
                       {order.imagenUrl && (
                         <button
                           onClick={() => openImageModal(order.imagenUrl)}
@@ -364,16 +386,16 @@ const OrderList = ({ phone, isAdmin = false }) => {
           <div className="bg-white p-4 rounded-lg shadow-xl max-w-md w-full">
             <h3 className="text-xl font-bold mb-4 text-red-700">Imagen de ubicación</h3>
             <div className="relative">
-              <img 
-                src={selectedImage} 
-                alt="Ubicación" 
+              <img
+                src={selectedImage}
+                alt="Ubicación"
                 className="w-full object-contain max-h-80"
               />
             </div>
             <div className="mt-4 flex justify-between">
-              <a 
-                href={selectedImage} 
-                target="_blank" 
+              <a
+                href={selectedImage}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-sm"
               >

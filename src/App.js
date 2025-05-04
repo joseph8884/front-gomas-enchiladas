@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
 import LoginPage from './pages/Login';
+import Points from './pages/Points'; // Add this import
 import ProtectedRoute from './routes/ProtectedRoute';
 import { AuthProvider } from './routes/AuthContext';
 import "./fonts/Awesome Lathusca.woff"
@@ -20,6 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/pedidos" element={<Orders />} />
+              <Route path="/puntos" element={<Points />} /> {/* Add this new route */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/admin" element={
                 <ProtectedRoute>

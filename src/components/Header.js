@@ -13,6 +13,7 @@ const Header = () => {
           <ul className="flex space-x-4">
             <li><Link to="/" className="hover:underline">Inicio</Link></li>
             <li><Link to="/pedidos" className="hover:underline">Mis Pedidos</Link></li>
+            <li><Link to="/puntos" className="hover:underline">Puntos</Link></li>
             {currentUser ? (
               <>
                 <li><Link to="/admin" className="hover:underline">Admin</Link></li>
