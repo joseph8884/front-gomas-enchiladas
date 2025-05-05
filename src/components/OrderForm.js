@@ -236,16 +236,20 @@ const OrderForm = () => {
   };
 
   const checkReferralCode = async () => {
-
     if (formData.codigoReferido && formData.codigoReferido.length === 6) {
       try {
-        const referrer = await verifyReferralCode(formData.codigoReferido);
-        
+        const referrer = await verifyReferralCode(formData.codigoReferido, formData.telefono);
         if (referrer) {
-          setReferrerData(referrer);
-          const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
-          setDiscount(calculateReferralDiscount(baseTotal));
-          setError('');
+          if (referrer.selfReferral) {
+            setReferrerData(null);
+            setDiscount(0);
+            setError('No puedes usar tu propio código de referido');
+          } else {
+            setReferrerData(referrer);
+            const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
+            setDiscount(calculateReferralDiscount(baseTotal));
+            setError('');
+          }
         } else {
           setReferrerData(null);
           setDiscount(0);
@@ -275,13 +279,19 @@ const OrderForm = () => {
     
     // Verify referral code if provided but not yet verified
     if (formData.codigoReferido && !referrerData) {
-      const referrer = await verifyReferralCode(formData.codigoReferido);
+      const referrer = await verifyReferralCode(formData.codigoReferido, formData.telefono);
       if (referrer) {
+        if (referrer.selfReferral) {
+          setError('No puedes usar tu propio código de referido');
+          setLoading(false);
+          return;
+        }
         setReferrerData(referrer);
         const baseTotal = (formData.maxiVasos * 10000) + (formData.bolsas * 5000);
         setDiscount(calculateReferralDiscount(baseTotal));
       } else {
         setError('El código de referido no es válido');
+        setLoading(false);
         return;
       }
     }

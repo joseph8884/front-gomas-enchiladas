@@ -6,29 +6,36 @@ import { db } from '../services/firebase';
  * @param {string} code - The referral code to check
  * @returns {Promise<Object|null>} - The referrer document data or null if not found
  */
-export const verifyReferralCode = async (code) => {
+export const verifyReferralCode = async (code, userPhone) => {
   if (!code || code.trim() === '') return null;
-  
   try {
     const q = query(collection(db, 'refered'), where('NumReferido', '==', code));
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
-    
-    // Return the first matching document data and ID
+
+    // Get the first matching document
     const doc = querySnapshot.docs[0];
+    const referrerData = doc.data();
+
+    // Check if user is trying to use their own referral code
+    // Assuming the phone number is stored in a field called 'tel' in the referrer document
+    if (parseInt(referrerData.tel) === parseInt(userPhone)) {
+      return { selfReferral: true };
+    }
+
+    // Return the first matching document data and ID
     return {
       id: doc.id,
-      ...doc.data()
+      ...referrerData
     };
   } catch (error) {
     console.error('Error verifying referral code:', error);
     return null;
   }
 };
-
 /**
  * Calculates the discount amount based on a valid referral code
  * @param {number} total - The total order amount
@@ -49,12 +56,12 @@ export const updateReferrerData = async (referrerId, referrerData, orderData) =>
   try {
     // Calculate points to add based on order total
     const pointsToAdd = orderData.total >= 10000 ? 10 : 5;
-    
+
     // Convert existing values from strings to numbers
     const currentPoints = parseInt(referrerData.PuntosTotal) || 0;
     const currentVasos = parseInt(referrerData.Vasos_comprados) || 0;
     const currentBolsas = parseInt(referrerData.bolsas_compradas) || 0;
-    
+
     // Update the document with new values
     const referrerRef = doc(db, 'refered', referrerId);
     await updateDoc(referrerRef, {
@@ -62,7 +69,7 @@ export const updateReferrerData = async (referrerId, referrerData, orderData) =>
       Vasos_comprados: (currentVasos + orderData.maxiVasos).toString(),
       bolsas_compradas: (currentBolsas + orderData.bolsas).toString()
     });
-    
+
     return true;
   } catch (error) {
     console.error('Error updating referrer data:', error);
