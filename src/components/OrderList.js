@@ -15,6 +15,9 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const [inventoryDocId, setInventoryDocId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [deliveryPerson, setDeliveryPerson] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('efectivo');
 
   const fetchInventory = async () => {
     try {
@@ -125,6 +128,12 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const handleUpdateStatus = async (newStatus) => {
     if (!editingOrderId) return;
 
+    // If the new status is "entregado", show the delivery details dialog
+    if (newStatus === 'entregado') {
+      setIsDeliveryModalOpen(true);
+      return;
+    }
+
     try {
       const orderToUpdate = orders.find(order => order.id === editingOrderId);
 
@@ -201,6 +210,76 @@ const OrderList = ({ phone, isAdmin = false }) => {
     } catch (err) {
       console.error('Error al actualizar estado:', err);
       setError('Error al actualizar el estado. Inténtalo de nuevo.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleDeliveryDetailsSubmit = async () => {
+    if (!editingOrderId) return;
+
+    try {
+      const orderToUpdate = orders.find(order => order.id === editingOrderId);
+
+      if (!orderToUpdate) {
+        throw new Error('Pedido no encontrado');
+      }
+      console.log("order to update", orderToUpdate);  
+      // Update the order with new status and delivery details
+      await updateDoc(doc(db, 'orders', editingOrderId), {
+        estado: 'entregado',
+        repartidor: deliveryPerson,
+        metodoPago: paymentMethod,
+      });
+
+      // Handle inventory changes (existing code)
+      const afectaInventario = ['en_camino', 'entregado'];
+      const noAfectaInventario = ['pendiente', 'cancelado', 'encargo'];
+
+      if (noAfectaInventario.includes(orderToUpdate.estado) && 
+          inventoryDocId) {
+        // Reducir inventario
+        const newInventory = {
+          maxiVasos: Math.max(0, inventory.maxiVasos - (orderToUpdate.maxiVasos || 0)),
+          bolsas: Math.max(0, inventory.bolsas - (orderToUpdate.bolsas || 0))
+        };
+        
+        await updateDoc(doc(db, 'inventory', inventoryDocId), newInventory);
+        setInventory(newInventory);
+      }
+
+      // Handle referral code (existing code)
+      if (orderToUpdate.codigoReferido) {
+        const referrerData = await verifyReferralCode(orderToUpdate.codigoReferido);
+        if (referrerData) {
+          await updateReferrerData(referrerData.id, referrerData, {
+            maxiVasos: orderToUpdate.maxiVasos,
+            bolsas: orderToUpdate.bolsas,
+            total: orderToUpdate.total
+          });
+        }
+      }
+
+      setSuccessMessage('Pedido marcado como entregado con detalles de entrega');
+      setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Update the order in the UI
+      setOrders(orders.map(order =>
+        order.id === editingOrderId ? { 
+          ...order, 
+          estado: 'entregado',
+          repartidor: deliveryPerson,
+          metodoPago: paymentMethod 
+        } : order
+      ));
+
+      // Close the modal and reset fields
+      setIsDeliveryModalOpen(false);
+      setDeliveryPerson('');
+      setPaymentMethod('efectivo');
+      setEditingOrderId(null);
+    } catch (err) {
+      console.error('Error al actualizar detalles de entrega:', err);
+      setError('Error al actualizar los detalles. Inténtalo de nuevo.');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -454,6 +533,64 @@ const OrderList = ({ phone, isAdmin = false }) => {
                 className="bg-gray-300 text-gray-800 py-2 px-4 rounded hover:bg-gray-400"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeliveryModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 className="text-xl font-bold mb-4 text-red-700">Detalles de Entrega</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ¿Quién entregó el pedido?
+                </label>
+                <input
+                  type="text"
+                  value={deliveryPerson}
+                  onChange={(e) => setDeliveryPerson(e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Nombre del repartidor"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Método de pago
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="nequi">Nequi</option>
+                  <option value="daviplata">Daviplata</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setIsDeliveryModalOpen(false);
+                  setEditingOrderId(null);
+                }}
+                className="bg-gray-300 text-gray-800 py-2 px-4 rounded hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeliveryDetailsSubmit}
+                className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700"
+                disabled={!deliveryPerson.trim()}
+              >
+                Guardar
               </button>
             </div>
           </div>
