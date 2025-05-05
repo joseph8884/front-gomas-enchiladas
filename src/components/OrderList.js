@@ -281,12 +281,13 @@ const OrderList = ({ phone, isAdmin = false }) => {
           <table className="min-w-full bg-white">
             <thead>
               <tr className="bg-gray-100 text-gray-700">
-                <th className="py-2 px-4 text-left">Fecha de realización de pedido</th>
                 {isAdmin && <th className="py-2 px-4 text-left">Cliente</th>}
                 {isAdmin && <th className="py-2 px-4 text-left">Teléfono</th>}
                 <th className="py-2 px-4 text-left">Productos</th>
                 <th className="py-2 px-4 text-left">Total</th>
                 <th className="py-2 px-4 text-left">Hora de entrega</th>
+                <th className="py-2 px-4 text-left">Luegar del pedido</th>
+                {isAdmin && <th className="py-2 px-4 text-left">Código de referido</th>}
                 <th className="py-2 px-4 text-left">Estado</th>
                 <th className="py-2 px-4 text-center">Acciones</th>
               </tr>
@@ -294,11 +295,8 @@ const OrderList = ({ phone, isAdmin = false }) => {
             <tbody>
               {orders.map(order => (
                 <tr key={order.id} className={`border-b hover:bg-gray-50 ${order.estado === 'encargo' ? 'bg-yellow-50' : ''}`}>
-                  <td className="py-2 px-4">
-                    {order.fecha.toLocaleDateString()} {order.fecha.toLocaleTimeString()}
-                  </td>
                   {isAdmin && <td className="py-2 px-4">{order.nombre}</td>}
-                  {isAdmin && <td className="py-2 px-4">{order.telefono}</td>}
+                  {isAdmin && <td className="py-2 px-4">{order.telefono}<a href={`https://wa.me/57${order.telefono}`} target='blank'>🔗</a></td>}
                   <td className="py-2 px-4">
                     {order.maxiVasos > 0 && `${order.maxiVasos} Maxi Vasos`}
                     {order.maxiVasos > 0 && order.bolsas > 0 && ', '}
@@ -321,6 +319,8 @@ const OrderList = ({ phone, isAdmin = false }) => {
                     )}
                     {order.tipoOrden !== 'futuro' && order.horaEntrega}
                   </td>
+                  <td className="py-2 px-4">{order.ubicacion}</td>
+                  {isAdmin && <td className="py-2 px-4">{order.codigoReferido || 'N/A'}</td>}
 
                   <td className="py-2 px-4 relative">
                     <div className="flex items-center">
