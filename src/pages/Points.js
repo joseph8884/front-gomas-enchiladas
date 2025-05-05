@@ -174,7 +174,7 @@ const Points = () => {
                       <ul className="list-disc list-inside text-sm pl-2">
                         <li>Alfajor</li>
                         <li>Frappe</li>
-                        <li>Crepe de nutela</li>
+                        <li>Crepe de nutella</li>
                       </ul>
                     </div>
                   </div>
