@@ -9,6 +9,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const [searchPhone, setSearchPhone] = useState(phone || '');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // Add this line
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [inventory, setInventory] = useState({ maxiVasos: 0, bolsas: 0 });
@@ -45,7 +46,14 @@ const OrderList = ({ phone, isAdmin = false }) => {
       let ordersQuery;
 
       if (isAdmin) {
-        ordersQuery = collection(db, 'orders');
+        if (statusFilter !== 'all') {
+          ordersQuery = query(
+            collection(db, 'orders'),
+            where('estado', '==', statusFilter)
+          );
+        } else {
+          ordersQuery = collection(db, 'orders');
+        }
       } else {
         if (!searchPhone.trim()) {
           setError('Ingresa un número de teléfono para buscar tus pedidos');
@@ -83,7 +91,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
       fetchOrders();
       fetchInventory();
     }
-  }, [phone, isAdmin]);
+  }, [phone, isAdmin, statusFilter]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -316,6 +324,26 @@ const OrderList = ({ phone, isAdmin = false }) => {
       <h2 className="text-xl font-bold mb-4 text-red-700">
         {isAdmin ? 'Gestión de Pedidos' : 'Mis Pedidos'}
       </h2>
+
+      {isAdmin && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Filtrar por estado:
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full md:w-auto px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            <option value="all">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_camino">En Camino</option>
+            <option value="entregado">Entregado</option>
+            <option value="encargo">Encargo</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+      )}
 
       {!isAdmin && (
         <form onSubmit={handleSearch} className="mb-6">
