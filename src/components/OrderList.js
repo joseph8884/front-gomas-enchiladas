@@ -19,7 +19,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [deliveryPerson, setDeliveryPerson] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
-
+  const [dateFilter, setDateFilter] = useState('');
   const fetchInventory = async () => {
     try {
       const inventoryRef = collection(db, 'inventory');
@@ -46,13 +46,33 @@ const OrderList = ({ phone, isAdmin = false }) => {
       let ordersQuery;
 
       if (isAdmin) {
+        // Start with the base collection
+        ordersQuery = collection(db, 'orders');
+
+        // Create an array to hold the conditions
+        let conditions = [];
+
+        // Add status filter if selected
         if (statusFilter !== 'all') {
-          ordersQuery = query(
-            collection(db, 'orders'),
-            where('estado', '==', statusFilter)
-          );
-        } else {
-          ordersQuery = collection(db, 'orders');
+          conditions.push(where('estado', '==', statusFilter));
+        }
+
+        // Add date filter if selected
+        if (dateFilter) {
+          // Convert selected date to start and end timestamps (UTC-5)
+          const startDate = new Date(dateFilter);
+          startDate.setHours(0, 0, 0, 0);
+
+          const endDate = new Date(dateFilter);
+          endDate.setHours(23, 59, 59, 999);
+
+          conditions.push(where('fecha', '>=', startDate));
+          conditions.push(where('fecha', '<=', endDate));
+        }
+
+        // Apply the conditions to the query if there are any
+        if (conditions.length > 0) {
+          ordersQuery = query(ordersQuery, ...conditions);
         }
       } else {
         if (!searchPhone.trim()) {
@@ -91,7 +111,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
       fetchOrders();
       fetchInventory();
     }
-  }, [phone, isAdmin, statusFilter]);
+  }, [phone, isAdmin, statusFilter, dateFilter]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -159,29 +179,29 @@ const OrderList = ({ phone, isAdmin = false }) => {
       const noAfectaInventario = ['pendiente', 'cancelado', 'encargo'];
 
       // Caso 1: Cambio desde un estado que no afecta inventario a uno que sí
-      if (noAfectaInventario.includes(orderToUpdate.estado) && 
-          afectaInventario.includes(newStatus) && 
-          inventoryDocId) {
+      if (noAfectaInventario.includes(orderToUpdate.estado) &&
+        afectaInventario.includes(newStatus) &&
+        inventoryDocId) {
         // Reducir inventario
         const newInventory = {
           maxiVasos: Math.max(0, inventory.maxiVasos - (orderToUpdate.maxiVasos || 0)),
           bolsas: Math.max(0, inventory.bolsas - (orderToUpdate.bolsas || 0))
         };
-        
+
         await updateDoc(doc(db, 'inventory', inventoryDocId), newInventory);
         setInventory(newInventory);
       }
 
       // Caso 2: Cambio desde un estado que afecta inventario a uno que no
-      else if (afectaInventario.includes(orderToUpdate.estado) && 
-               noAfectaInventario.includes(newStatus) && 
-               inventoryDocId) {
+      else if (afectaInventario.includes(orderToUpdate.estado) &&
+        noAfectaInventario.includes(newStatus) &&
+        inventoryDocId) {
         // Devolver productos al inventario
         const newInventory = {
           maxiVasos: inventory.maxiVasos + (orderToUpdate.maxiVasos || 0),
           bolsas: inventory.bolsas + (orderToUpdate.bolsas || 0)
         };
-        
+
         await updateDoc(doc(db, 'inventory', inventoryDocId), newInventory);
         setInventory(newInventory);
       }
@@ -231,7 +251,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
       if (!orderToUpdate) {
         throw new Error('Pedido no encontrado');
       }
-      console.log("order to update", orderToUpdate);  
+      console.log("order to update", orderToUpdate);
       // Update the order with new status and delivery details
       await updateDoc(doc(db, 'orders', editingOrderId), {
         estado: 'entregado',
@@ -243,14 +263,14 @@ const OrderList = ({ phone, isAdmin = false }) => {
       const afectaInventario = ['en_camino', 'entregado'];
       const noAfectaInventario = ['pendiente', 'cancelado', 'encargo'];
 
-      if (noAfectaInventario.includes(orderToUpdate.estado) && 
-          inventoryDocId) {
+      if (noAfectaInventario.includes(orderToUpdate.estado) &&
+        inventoryDocId) {
         // Reducir inventario
         const newInventory = {
           maxiVasos: Math.max(0, inventory.maxiVasos - (orderToUpdate.maxiVasos || 0)),
           bolsas: Math.max(0, inventory.bolsas - (orderToUpdate.bolsas || 0))
         };
-        
+
         await updateDoc(doc(db, 'inventory', inventoryDocId), newInventory);
         setInventory(newInventory);
       }
@@ -272,11 +292,11 @@ const OrderList = ({ phone, isAdmin = false }) => {
 
       // Update the order in the UI
       setOrders(orders.map(order =>
-        order.id === editingOrderId ? { 
-          ...order, 
+        order.id === editingOrderId ? {
+          ...order,
           estado: 'entregado',
           repartidor: deliveryPerson,
-          metodoPago: paymentMethod 
+          metodoPago: paymentMethod
         } : order
       ));
 
@@ -326,22 +346,61 @@ const OrderList = ({ phone, isAdmin = false }) => {
       </h2>
 
       {isAdmin && (
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Filtrar por estado:
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full md:w-auto px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            <option value="all">Todos</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="en_camino">En Camino</option>
-            <option value="entregado">Entregado</option>
-            <option value="encargo">Encargo</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
+        <div className="mb-6 flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filtrar por estado:
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              <option value="all">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_camino">En Camino</option>
+              <option value="entregado">Entregado</option>
+              <option value="encargo">Encargo</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filtrar por fecha:
+            </label>
+            <div className="flex">
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              {dateFilter && (
+                <button
+                  onClick={() => setDateFilter('')}
+                  className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-r border-t border-r border-b"
+                  title="Limpiar filtro de fecha"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {isAdmin && dateFilter && (
+        <div className="mb-4">
+          <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded">
+            <span>Filtrando por fecha: {new Date(dateFilter).toLocaleDateString()}</span>
+            <button
+              onClick={() => setDateFilter('')}
+              className="ml-2 text-blue-600 hover:text-blue-800"
+              title="Quitar filtro de fecha"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -585,7 +644,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Método de pago
@@ -602,7 +661,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
                 </select>
               </div>
             </div>
-            
+
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => {
