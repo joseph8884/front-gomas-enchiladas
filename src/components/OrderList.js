@@ -59,13 +59,18 @@ const OrderList = ({ phone, isAdmin = false }) => {
 
         // Add date filter if selected
         if (dateFilter) {
-          // Convert selected date to start and end timestamps (UTC-5)
+          console.log("date filter", dateFilter);
+          // Convert selected date to start and end timestamps with timezone adjustment
           const startDate = new Date(dateFilter);
-          startDate.setHours(0, 0, 0, 0);
-
+          startDate.setHours(0, 0, 0, 0); // Set to start of the day
+          // Adjust for timezone offset
+          startDate.setDate(startDate.getDate() + 1);
+          console.log("start date", startDate);
           const endDate = new Date(dateFilter);
-          endDate.setHours(23, 59, 59, 999);
-
+          endDate.setHours(23, 59, 59, 999); // Set to end of the day
+          endDate.setDate(endDate.getDate() + 1);
+          console.log("end date", endDate); 
+          // Adjust for timezone offset
           conditions.push(where('fecha', '>=', startDate));
           conditions.push(where('fecha', '<=', endDate));
         }
@@ -392,7 +397,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
       {isAdmin && dateFilter && (
         <div className="mb-4">
           <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded">
-            <span>Filtrando por fecha: {new Date(dateFilter).toLocaleDateString()}</span>
+            <span>Filtrando por fecha: {dateFilter.toString()}</span>
             <button
               onClick={() => setDateFilter('')}
               className="ml-2 text-blue-600 hover:text-blue-800"
