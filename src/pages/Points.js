@@ -59,7 +59,7 @@ const Points = () => {
           <p className="text-lg text-gray-600">Verifica tus puntos y descubre tus recompensas</p>
         </div>
 
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto mb-8">
           {/* Code verification form */}
           <div className="bg-white p-6 rounded-lg shadow-md mb-6">
             <h2 className="text-xl font-bold mb-4 text-red-700">Consulta tus Puntos</h2>
@@ -191,6 +191,11 @@ const Points = () => {
               </div>
             )}
           </div>
+                    
+        </div>
+        {/* Terminos y condiciones */}  
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6 max-w-2xl mx-auto">
+            <a href='/Términos y Condiciones del Programa de Referidos de Sweet J&E.pdf' target='blank'><h2 className="text-xl font-bold mb-4 text-red-700">Términos y Condiciones       🔗</h2></a>
         </div>
       </div>
     </div>
