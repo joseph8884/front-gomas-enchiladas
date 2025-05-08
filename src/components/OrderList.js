@@ -9,7 +9,7 @@ const OrderList = ({ phone, isAdmin = false }) => {
   const [searchPhone, setSearchPhone] = useState(phone || '');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // Add this line
+  const [statusFilter, setStatusFilter] = useState('pendiente');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [inventory, setInventory] = useState({ maxiVasos: 0, bolsas: 0 });
