@@ -658,10 +658,9 @@ const OrderForm = () => {
               <button
                 type="button"
                 onClick={() => handleProductQuantity.decrement('maxiVasos')}
-                className="px-3 py-1 bg-red-500 text-white rounded-l"
+                className="px-4 py-1 bg-red-500 text-white rounded-l"
               >-</button>
               <input
-                type="number"
                 name="maxiVasos"
                 value={formData.maxiVasos}
                 onChange={handleChange}
@@ -672,7 +671,7 @@ const OrderForm = () => {
               <button
                 type="button"
                 onClick={() => handleProductQuantity.increment('maxiVasos')}
-                className="px-3 py-1 bg-red-500 text-white rounded-r"
+                className="px-4 py-1 bg-red-500 text-white rounded-r"
               >+</button>
               {formData.tipoOrden === 'inmediato' && (
                 <span className="ml-2">Disponibles: {inventory.maxiVasos}</span>
@@ -689,10 +688,9 @@ const OrderForm = () => {
               <button
                 type="button"
                 onClick={() => handleProductQuantity.decrement('bolsas')}
-                className="px-3 py-1 bg-red-500 text-white rounded-l"
+                className="px-4 py-1 bg-red-500 text-white rounded-l"
               >-</button>
               <input
-                type="number"
                 name="bolsas"
                 value={formData.bolsas}
                 onChange={handleChange}
@@ -703,7 +701,7 @@ const OrderForm = () => {
               <button
                 type="button"
                 onClick={() => handleProductQuantity.increment('bolsas')}
-                className="px-3 py-1 bg-red-500 text-white rounded-r"
+                className="px-4 py-1 bg-red-500 text-white rounded-r"
               >+</button>
               {formData.tipoOrden === 'inmediato' && (
                 <span className="ml-2">Disponibles: {inventory.bolsas}</span>
