@@ -5,6 +5,8 @@ import OrderForm from '../components/OrderForm';
 const Home = () => {
   return (
     <div className="flex flex-col min-h-screen md:pl-64"> {/* Right padding for desktop only */}
+      
+
       {/* Hero section with gummies background */}
       <div className="relative">
         <div 
@@ -27,6 +29,19 @@ const Home = () => {
         <div className="mb-8">
           <InventoryDisplay />
         </div>
+        {/* Alert de ausencia */}
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mx-4 mt-4 rounded-lg shadow-md">
+        <div className="flex items-center justify-center">
+          <div className="text-center">
+            <h3 className="font-bold text-lg mb-1">⚠️ Aviso Importante</h3>
+            <p className="text-sm">
+              Estaremos ausentes del <strong>19 al 23 de agosto</strong> por motivos personales.
+              <br />
+              Los pedidos se reanudarán el 25 de agosto. ¡Gracias por su comprensión!
+            </p>
+          </div>
+        </div>
+      </div>
         
         {/* Order form */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
